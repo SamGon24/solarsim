@@ -1,0 +1,8 @@
+#!/bin/sh
+bad=$(git diff --cached --numstat --diff-filter=AM | awk '$1=="-" && $2=="-" {print $3}' | grep -Ev '^docs/images/')
+if [ -n "$bad" ]; then
+  echo "Commit blocked, binary files staged:"
+  echo "$bad"
+  echo "Unstage with: git restore --staged <file>"
+  exit 1
+fi
