@@ -1,0 +1,34 @@
+# Build trees
+build/
+build-*/
+cmake-build-*/
+out/
+
+# Binaries
+solarsim
+solarsim_debug
+solarsim_tests
+*.exe
+*.o
+*.obj
+*.pdb
+*.ilk
+*.d
+
+# Generated media from runs in the project root (keep docs/images)
+/*.gif
+/*.png
+/*.bmp
+/*.ppm
+/*.svg
+/*.csv
+solarsim_*.png
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+.DS_Store
+compile_commands.json
+solarsim_asan
+solarsim_asan.dSYM/
