@@ -352,6 +352,31 @@ them) and are the only code in the repository with a third-party dependency.
 | `opengl/step7.cpp` | orbit trails (line strips), star field (points at infinity), on-screen legend |
 | `opengl/step8.cpp` | HDR rendering: multisampled float framebuffer, bright pass, ping-pong Gaussian bloom, exposure, tone mapping (clamp / Reinhard / ACES), gamma |
 
+### Progress so far
+
+Steps 1–5 are standalone OpenGL exercises with toy orbits. From step 6 on, the viewer runs the **real
+N-body simulation**: it links against `src/` and reuses `Simulation`, `SystemBuilder`, `DisplayMapping`
+(the same sqrt/log/linear radial compression as the terminal viewer) and the orbit `Camera`. Only the
+drawing moved to the GPU. The current state (step 8) renders each frame like this:
+
+1. **Scene pass** into a 4× multisampled `RGBA16F` framebuffer with a 24-bit depth buffer:
+   - every body is drawn from one shared sphere mesh, lit by the Sun with either a display-friendly flux
+     or the physical 1/r² flux (`f`); the Sun is emissive
+   - orbit trails are dynamic line strips from SolarSim's `TrailRecorder`, faded with per-vertex alpha
+     and alpha blending, drawn without writing depth
+   - SolarSim's `StarField` (real bright stars plus a procedural Milky Way population) is drawn as points with `w = 0` (directions, so they
+     stay at infinity however the camera moves) and depth pinned to the far plane (`.xyww`), sized and
+     coloured by magnitude and B−V
+2. **Resolve**: `glBlitFramebuffer` into a plain `RGBA16F` texture that later passes can sample.
+3. **Bloom** at half resolution: a bright pass with a soft-knee threshold, then a separable Gaussian
+   blur that ping-pongs between two framebuffers.
+4. **Composite**: scene + bloom × strength, exposure, tone mapping (clamp, Reinhard or ACES), gamma 2.2.
+5. **Overlay**: the legend is text from SolarSim's own 5×7 bitmap font, rasterised once on the CPU into
+   a texture and drawn as a screen-space quad built from `gl_VertexID` (no vertex buffer). The window
+   title shows date, time warp, focus, radial scale, flux mode, fps, exposure, tone map and bloom.
+
+On the development Mac (Intel, Retina display) step 8 holds about 60 fps with vsync on.
+
 Building (needs SDL2: `brew install sdl2` on macOS, `apt install libsdl2-dev` on Debian/Ubuntu):
 
 ```bash
