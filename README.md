@@ -11,6 +11,7 @@ precession of Mercury matches Einstein's prediction.
 Everything is written from scratch in standard C++17: vector math, integrators, Kepler/Lambert solvers,
 a software ray-casting renderer, a DEFLATE compressor for PNG, an LZW encoder for GIF, a terminal UI,
 a CLI parser, a thread pool and a unit-test framework. The only build requirement is a C++17 compiler.
+(The optional [OpenGL experiments](#opengl-experiments) are the one exception: they use SDL2.)
 
 ![Overview](docs/images/overview.png)
 
@@ -29,8 +30,10 @@ a CLI parser, a thread pool and a unit-test framework. The only build requiremen
 5. [Physics and data](#physics-and-data)
 6. [Validation against the real sky](#validation-against-the-real-sky)
 7. [Custom bodies](#custom-bodies-data-files)
-8. [Project layout](#project-layout)
-9. [Troubleshooting](#troubleshooting)
+8. [OpenGL experiments](#opengl-experiments)
+9. [Project layout](#project-layout)
+10. [Contributing](#contributing)
+11. [Troubleshooting](#troubleshooting)
 
 Further reading: [`docs/PHYSICS.md`](docs/PHYSICS.md) (equations and algorithms) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (code structure and extension points).
@@ -332,6 +335,52 @@ radius_km = 30            ; optional: mass_kg / mass_earths / gm_km3s2, color, s
 
 ---
 
+## OpenGL experiments
+
+`experiments/` holds a step-by-step exploration of a GPU-accelerated viewer, built with SDL2 and
+OpenGL 3.3 core. These programs are **not** part of the main build (CMake, Make and `build.sh` ignore
+them) and are the only code in the repository with a third-party dependency.
+
+| File | What it adds |
+|---|---|
+| `hello_gl.cpp` | open a window and a 3.3 core context, print the GL version/renderer |
+| `step2.cpp` | first shader program and vertex buffer: a coloured triangle |
+| `step3.cpp` | 3D: model-view-projection matrix, index buffer, depth test (spinning cube) |
+| `step4.cpp` | a generated sphere mesh reused for a toy Sun and planets |
+| `step5.cpp` | point lighting from the Sun with inverse-square falloff, emissive Sun |
+| `opengl/step6.cpp` | **the real simulation**: SolarSim's `Simulation`, display mapping and orbit camera on the GPU |
+| `opengl/step7.cpp` | orbit trails (line strips), star field (points at infinity), on-screen legend |
+| `opengl/step8.cpp` | HDR rendering: multisampled float framebuffer, bright pass, ping-pong Gaussian bloom, exposure, tone mapping (clamp / Reinhard / ACES), gamma |
+
+Building (needs SDL2: `brew install sdl2` on macOS, `apt install libsdl2-dev` on Debian/Ubuntu):
+
+```bash
+# steps 1-5: standalone, one file each
+clang++ -std=c++17 experiments/step5.cpp $(sdl2-config --cflags --libs) -framework OpenGL -o step5
+
+# steps 6-8: link against the SolarSim sources
+clang++ -std=c++17 -O2 -Isrc experiments/opengl/step8.cpp \
+    src/core/*.cpp src/astro/*.cpp src/physics/*.cpp src/render/*.cpp \
+    $(sdl2-config --cflags --libs) -framework OpenGL -o step8
+./step8                        # --frames N exits after N frames
+```
+
+On Linux replace `-framework OpenGL` with `-lGL` (and `clang++` with `g++` if you prefer).
+
+Controls in steps 6–8:
+
+| Key | Action | Key | Action |
+|---|---|---|---|
+| left drag / wheel | orbit / zoom | `Esc` / `q` | quit |
+| `Tab` / `0`-`9` | focus body | `z` | reset camera |
+| `space` | pause | `[` / `]` | slower / faster time |
+| `r` | reverse time | `f` | display flux / physical flux |
+| `m` | radial scale (sqrt / log / linear) | `t` / `s` | trails / stars (step 7+) |
+| `h` | legend (step 7+) | `,` / `.` | exposure down / up (step 8) |
+| `y` | tone map: clamp / Reinhard / ACES (step 8) | `b`, `-` / `=` | bloom on/off, weaker / stronger (step 8) |
+
+---
+
 ## Project layout
 
 ```
@@ -353,10 +402,25 @@ solarsim/
 ├── tests/          (1.1k)       dependency-free test framework + 45 tests (incl. independent inflate/LZW decoders)
 ├── data/                        example body files
 ├── docs/                        PHYSICS.md, ARCHITECTURE.md, images
-└── scripts/                     demo.sh (runs everything into ./out), gen_font.py
+├── experiments/                 SDL2 + OpenGL viewer experiments (not built by default)
+│   └── opengl/                  steps 6-8, built on the SolarSim sources
+├── scripts/                     demo.sh (runs everything into ./out), gen_font.py
+└── .githooks/                   pre-commit hook that blocks binary files
 ```
 
-About 14,800 lines of C++ in 119 files.
+About 14,800 lines of C++ in 119 files, plus about 3,000 lines of OpenGL experiments.
+
+---
+
+## Contributing
+
+The repository ships a pre-commit hook that refuses commits containing binary files (images under
+`docs/images/` are allowed), so build outputs and screenshots don't end up in history. Enable it once
+per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
 
 ---
 
